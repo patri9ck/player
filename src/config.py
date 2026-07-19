@@ -1,0 +1,46 @@
+import os
+
+HOME = os.path.expanduser("~")
+MUSIC_DIRECTORY = os.path.join(HOME, "music")
+COVER_DIRECTORY = os.path.join(HOME, "covers")
+VIDEO_DIRECTORY = os.path.join(HOME, "videos")
+
+DEVICE_NAME = "Player"
+
+PLAYBACK_DEVICE = "default"
+SAMPLE_RATE = 44100
+CHANNELS = 2
+CHUNK_SIZE = 8192
+TOLERANCE_SECONDS = 5
+BLOCK_SECONDS = 60
+
+USER_AGENT = "player/1.0 (patrick@patri9ck.dev)"
+BACKFILL_INTERVAL = 900
+REQUEST_TIMEOUT = 10
+
+BUTTON_PREVIOUS = 5
+BUTTON_NEXT = 6
+BUTTON_PLAY_PAUSE = 16
+BUTTON_BLUETOOTH = 24
+
+HOLD_SECONDS = 2
+REFRESH_MILLISECONDS = 500
+SLEEP_SECONDS = 30
+VIDEO_FPS = 15
+THUMB_SIZE = 38
+COVER_BRIGHTNESS = 0.55
+COVER_RETRY_SECONDS = 2
+COVER_CANDIDATES = 4
+
+VIDEO_CANDIDATES = 5
+VIDEO_MAX_HEIGHT = 480
+VIDEO_CLIP_SECONDS = 10
+VIDEO_RETRY_SECONDS = 3
+
+WIDTH = 240
+HEIGHT = 240
+
+FONT_BOLD = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
+FONT_REGULAR = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
+
+AGENT_PATH = "/speaker/agent"

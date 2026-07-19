@@ -1,0 +1,13 @@
+[Unit]
+Description=Player
+
+[Service]
+Type=simple
+ExecStartPre=/bin/sh -c 'until systemctl is-active --quiet bluealsa; do sleep 1; done'
+ExecStartPre=/bin/sh -c 'until aplay -D default -t raw -f S16_LE -r 44100 -c 2 -d 1 /dev/zero >/dev/null 2>&1; do sleep 2; done'
+ExecStart=/usr/bin/python3 %h/main.py
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=default.target
