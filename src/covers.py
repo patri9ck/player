@@ -8,7 +8,7 @@ import urllib.request
 
 from config import (COVER_DIRECTORY, MUSIC_DIRECTORY, USER_AGENT,
                     BACKFILL_INTERVAL, REQUEST_TIMEOUT, COVER_CANDIDATES)
-from util import sanitize
+from util import sanitize, normalize, primary_artist, clean_title
 
 cover_queue = queue.Queue()
 _requested = set()
@@ -44,18 +44,6 @@ def http_get(url):
     request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
 
     return urllib.request.urlopen(request, timeout=REQUEST_TIMEOUT).read()
-
-
-def normalize(text):
-    return "".join(character for character in text.lower() if character.isalnum())
-
-
-def primary_artist(artist):
-    for separator in (",", "&", " feat", " ft."):
-        if separator in artist.lower():
-            return artist.lower().split(separator)[0].strip()
-
-    return artist.strip()
 
 
 def credited_artists(recording):
@@ -94,10 +82,13 @@ def rank_release(release):
 
 
 def find_releases(artist, title):
-    wanted_artist = normalize(primary_artist(artist))
+    artist = primary_artist(artist)
+    title = clean_title(title)
+
+    wanted_artist = normalize(artist)
     wanted_title = normalize(title)
 
-    query = f'artist:"{primary_artist(artist)}" AND recording:"{title}"'
+    query = f'artist:"{artist}" AND recording:"{title}"'
     url = ("https://musicbrainz.org/ws/2/recording"
            f"?query={urllib.parse.quote(query)}&fmt=json&limit=10")
 
@@ -105,7 +96,9 @@ def find_releases(artist, title):
     scored = {}
 
     for recording in data.get("recordings", []):
-        if normalize(recording.get("title", "")) != wanted_title:
+        recording_title = normalize(clean_title(recording.get("title", "")))
+
+        if wanted_title not in recording_title and recording_title not in wanted_title:
             continue
 
         if not any(wanted_artist in name for name in credited_artists(recording)):

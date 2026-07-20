@@ -8,8 +8,8 @@ from yt_dlp import YoutubeDL
 from config import (VIDEO_DIRECTORY, MUSIC_DIRECTORY, BACKFILL_INTERVAL,
                     REQUEST_TIMEOUT, VIDEO_CANDIDATES, VIDEO_MAX_HEIGHT,
                     VIDEO_CLIP_SECONDS)
-from util import sanitize
-from covers import is_online, primary_artist, normalize
+from util import sanitize, normalize, primary_artist, clean_title
+from covers import is_online
 
 video_queue = queue.Queue()
 _requested = set()
@@ -35,22 +35,6 @@ def video_path(artist, title):
 
 def none_marker(artist, title):
     return os.path.join(VIDEO_DIRECTORY, f".{sanitize(artist)} - {sanitize(title)}.none")
-
-
-def clean_title(title):
-    for opener, closer in (("(", ")"), ("[", "]")):
-        while opener in title:
-            start = title.index(opener)
-            end = title.find(closer, start)
-            if end == -1:
-                title = title[:start]
-                break
-            title = title[:start] + title[end + 1:]
-
-    if " - " in title:
-        title = title.split(" - ")[0]
-
-    return title.strip()
 
 
 def is_music_video(entry, artist, title):

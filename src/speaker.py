@@ -12,7 +12,7 @@ import ST7789
 from gpiozero import Button
 
 from config import *
-from util import sanitize, format_time, parse_song
+from util import sanitize, format_time, parse_song, cleanup_partials
 from covers import request_cover, cover_path
 from videos import request_video, video_path
 from video import VideoClip
@@ -57,6 +57,7 @@ class Speaker:
 
         self.last_activity = time.monotonic()
         self.display_on = True
+        self.last_signature = None
 
         self.mpg = None
         self.playlist = []
@@ -67,6 +68,8 @@ class Speaker:
         os.makedirs(MUSIC_DIRECTORY, exist_ok=True)
         os.makedirs(COVER_DIRECTORY, exist_ok=True)
         os.makedirs(VIDEO_DIRECTORY, exist_ok=True)
+
+        cleanup_partials(MUSIC_DIRECTORY, COVER_DIRECTORY, VIDEO_DIRECTORY)
 
         self.screen = ST7789.ST7789(
             port=0, cs=ST7789.BG_SPI_CS_FRONT, dc=9, backlight=13,
@@ -174,7 +177,7 @@ class Speaker:
         self.mpg_send("STOP")
         self.find_player()
 
-        GLib.timeout_add(1000, self.start_audio, address)
+        GLib.timeout_add(AUDIO_START_DELAY, self.start_audio, address)
 
         return False
 
@@ -291,8 +294,8 @@ class Speaker:
 
         return subprocess.Popen(command, stdin=subprocess.PIPE)
 
-    def start_audio(self, address):
-        if self.running:
+    def start_audio(self, address, attempt=1):
+        if self.mode != "bluetooth" or self.running or self.recorder:
             return False
 
         device = f"bluealsa:DEV={address},PROFILE=a2dp"
@@ -302,26 +305,35 @@ class Speaker:
              "-r", str(SAMPLE_RATE), "-c", str(CHANNELS), "-t", "raw"],
             stdout=subprocess.PIPE)
 
-        time.sleep(0.5)
+        GLib.timeout_add(AUDIO_CONFIRM_DELAY, self.confirm_audio, address, attempt)
 
-        if self.recorder.poll() is not None:
-            print("audio failed: capture device busy, another process holds the a2dp stream")
-            self.recorder = None
+        return False
+
+    def confirm_audio(self, address, attempt):
+        if self.mode != "bluetooth":
+            self.terminate_audio()
             return False
 
-        self.playback = subprocess.Popen(
-            ["aplay", "-q", "-D", PLAYBACK_DEVICE, "-f", "S16_LE",
-             "-r", str(SAMPLE_RATE), "-c", str(CHANNELS), "-t", "raw"],
-            stdin=subprocess.PIPE)
+        if self.recorder and self.recorder.poll() is None:
+            self.playback = subprocess.Popen(
+                ["aplay", "-q", "-D", PLAYBACK_DEVICE, "-f", "S16_LE",
+                 "-r", str(SAMPLE_RATE), "-c", str(CHANNELS), "-t", "raw"],
+                stdin=subprocess.PIPE)
 
-        self.running = True
+            self.running = True
+            threading.Thread(target=self.pump, daemon=True).start()
 
-        threading.Thread(target=self.pump, daemon=True).start()
+            return False
+
+        self.terminate_audio()
+
+        if attempt < AUDIO_ATTEMPTS:
+            GLib.timeout_add(AUDIO_RETRY_DELAY, self.start_audio, address, attempt + 1)
 
         return False
 
     def stop_audio(self):
-        if not self.running:
+        if not self.running and not self.recorder and not self.playback:
             return
 
         self.running = False
@@ -329,9 +341,16 @@ class Speaker:
         job, self.job = self.job, None
         self.finalize(job)
 
+        self.terminate_audio()
+
+    def terminate_audio(self):
         for process in (self.recorder, self.playback):
-            if process:
+            if process and process.poll() is None:
                 process.terminate()
+                try:
+                    process.wait(timeout=1)
+                except subprocess.TimeoutExpired:
+                    process.kill()
 
         self.recorder = self.playback = None
 
@@ -343,10 +362,12 @@ class Speaker:
             if not data:
                 break
 
-            try:
-                self.playback.stdin.write(data)
-            except (BrokenPipeError, ValueError):
-                pass
+            playback = self.playback
+            if playback:
+                try:
+                    playback.stdin.write(data)
+                except (BrokenPipeError, ValueError):
+                    pass
 
             job = self.job
             if job:
@@ -604,14 +625,30 @@ class Speaker:
 
         self.screen.display(frame)
 
+    def render_signature(self):
+        message = self.message if time.monotonic() < self.message_until else None
+
+        return (self.view, self.mode, self.artist, self.title, self.playing,
+                int(self.current_position()), message, self.browser_index)
+
     def tick(self):
+        interval = IDLE_REFRESH_MILLISECONDS
+
         if self.display_on:
             if time.monotonic() - self.last_activity > SLEEP_SECONDS:
                 self.sleep()
-            else:
+            elif self.video is not None and self.video.latest is not None:
+                interval = VIDEO_REFRESH_MILLISECONDS
                 self.render()
+            else:
+                signature = self.render_signature()
+                if signature != self.last_signature:
+                    self.last_signature = signature
+                    self.render()
 
-        return True
+        GLib.timeout_add(interval, self.tick)
+
+        return False
 
     def dispatch(self, action):
         if self.mode == "bluetooth":
@@ -760,7 +797,7 @@ class Speaker:
                 self.enter_bluetooth(address)
         else:
             self.stop_audio()
-            self.enter_local()
+            self.enter_local(play=False)
 
     def on_added(self, path, interfaces):
         if "org.bluez.Device1" in interfaces:

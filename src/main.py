@@ -5,7 +5,7 @@ import dbus
 import dbus.mainloop.glib
 from gi.repository import GLib
 
-from config import AGENT_PATH, REFRESH_MILLISECONDS
+from config import AGENT_PATH, IDLE_REFRESH_MILLISECONDS
 from agent import Agent
 from covers import cover_worker
 from videos import video_worker
@@ -51,7 +51,7 @@ def main():
 
     threading.Thread(target=cover_worker, daemon=True).start()
     threading.Thread(target=video_worker, daemon=True).start()
-    GLib.timeout_add(REFRESH_MILLISECONDS, speaker.tick)
+    GLib.timeout_add(IDLE_REFRESH_MILLISECONDS, speaker.tick)
 
     GLib.MainLoop().run()
 
