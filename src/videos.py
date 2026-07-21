@@ -58,8 +58,7 @@ def is_music_video(entry, artist, title):
 
 
 def find_video(artist, title):
-    query = (f"ytsearch{VIDEO_CANDIDATES}:"
-             f"{primary_artist(artist)} {title} official music video")
+    query = f"ytsearch{VIDEO_CANDIDATES}:{primary_artist(artist)} {clean_title(title)}"
 
     options = {
         "quiet": True,
@@ -96,7 +95,9 @@ def download_video(identifier, destination):
         "no_warnings": True,
         "noplaylist": True,
         "socket_timeout": REQUEST_TIMEOUT,
-        "format": f"best[ext=mp4][height<={VIDEO_MAX_HEIGHT}]/best[height<={VIDEO_MAX_HEIGHT}]",
+        "format": (f"bestvideo[height<={VIDEO_MAX_HEIGHT}][vcodec^=avc1]/"
+                   f"bestvideo[height<={VIDEO_MAX_HEIGHT}]/"
+                   f"best[height<={VIDEO_MAX_HEIGHT}]"),
         "outtmpl": os.path.join(working, "%(id)s.%(ext)s"),
         "download_ranges": clip_range,
         "force_keyframes_at_cuts": True,

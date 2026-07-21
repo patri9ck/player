@@ -58,9 +58,9 @@ Add your user to the required groups:
 sudo usermod -aG bluetooth,audio,spi,gpio $USER
 ```
 
-Create the directories, clone the repository, then copy the scripts and the systemd unit into place:
+Clone the repository, then copy the scripts and the systemd unit into place. The music, covers and videos directories are created by the player itself on first start:
 ```
-mkdir -p ~/music ~/covers ~/videos ~/.config/systemd/user
+mkdir -p ~/.config/systemd/user
 
 git clone https://github.com/patri9ck/player.git
 cp player/src/* ~

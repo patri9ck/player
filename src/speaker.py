@@ -59,7 +59,7 @@ class Speaker:
         self.display_on = True
         self.last_signature = None
 
-        self.mpg = None
+        self.local_player = None
         self.playlist = []
         self.local_index = 0
         self.local_intent = False
@@ -174,7 +174,7 @@ class Speaker:
         self.view = "playing"
         self.local_intent = False
 
-        self.mpg_send("STOP")
+        self.send_command("STOP")
         self.find_player()
 
         GLib.timeout_add(AUDIO_START_DELAY, self.start_audio, address)
@@ -203,19 +203,19 @@ class Speaker:
         return False
 
     def start_local_engine(self):
-        self.mpg = subprocess.Popen(
+        self.local_player = subprocess.Popen(
             ["mpg123", "-a", PLAYBACK_DEVICE, "-R"],
             stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True, bufsize=1)
 
         threading.Thread(target=self.local_reader, daemon=True).start()
 
-    def mpg_send(self, command):
-        if not self.mpg:
+    def send_command(self, command):
+        if not self.local_player:
             return
 
         try:
-            self.mpg.stdin.write(command + "\n")
-            self.mpg.stdin.flush()
+            self.local_player.stdin.write(command + "\n")
+            self.local_player.stdin.flush()
         except (BrokenPipeError, ValueError):
             pass
 
@@ -240,7 +240,7 @@ class Speaker:
 
         request_cover(self.artist, self.title)
         request_video(self.artist, self.title)
-        self.mpg_send(f"{'LOAD' if play else 'LOADPAUSED'} {path}")
+        self.send_command(f"{'LOAD' if play else 'LOADPAUSED'} {path}")
 
         return False
 
@@ -257,7 +257,7 @@ class Speaker:
         return False
 
     def local_reader(self):
-        for line in self.mpg.stdout:
+        for line in self.local_player.stdout:
             line = line.strip()
 
             if line.startswith("@F "):
@@ -656,7 +656,7 @@ class Speaker:
              "next": lambda: self.player_call("Next"),
              "previous": lambda: self.player_call("Previous")}[action]()
         else:
-            {"play": lambda: self.mpg_send("PAUSE"),
+            {"play": lambda: self.send_command("PAUSE"),
              "next": self.local_next,
              "previous": self.local_previous}[action]()
 

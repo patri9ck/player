@@ -57,30 +57,6 @@ def credited_artists(recording):
     return names
 
 
-REJECTED_SECONDARY_TYPES = ("compilation", "dj-mix", "mixtape/street")
-
-
-def rank_release(release):
-    if release.get("status") in ("Bootleg", "Pseudo-Release"):
-        return None
-
-    group = release.get("release-group") or {}
-    secondary = [item.lower() for item in group.get("secondary-types", [])]
-
-    if any(bad in secondary for bad in REJECTED_SECONDARY_TYPES):
-        return None
-
-    score = 0
-
-    if release.get("status") == "Official":
-        score += 4
-
-    if (group.get("primary-type") or "").lower() in ("single", "album", "ep"):
-        score += 2
-
-    return score
-
-
 def find_releases(artist, title):
     artist = primary_artist(artist)
     title = clean_title(title)
@@ -93,7 +69,7 @@ def find_releases(artist, title):
            f"?query={urllib.parse.quote(query)}&fmt=json&limit=10")
 
     data = json.loads(http_get(url).decode("utf-8"))
-    scored = {}
+    releases = []
 
     for recording in data.get("recordings", []):
         recording_title = normalize(clean_title(recording.get("title", "")))
@@ -106,17 +82,10 @@ def find_releases(artist, title):
 
         for release in recording.get("releases", []):
             identifier = release.get("id")
-            if not identifier:
-                continue
+            if identifier and identifier not in releases:
+                releases.append(identifier)
 
-            score = rank_release(release)
-            if score is None:
-                continue
-
-            if identifier not in scored or score > scored[identifier]:
-                scored[identifier] = score
-
-    return sorted(scored, key=scored.get, reverse=True)
+    return releases
 
 
 def fetch_cover(artist, title):
