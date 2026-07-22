@@ -147,9 +147,9 @@ Comitup is started manually through a button press, so disable its auto-start:
 sudo systemctl disable --now comitup
 ```
 
-Allow your user to start and stop Comitup without a password. Run `sudo visudo -f /etc/sudoers.d/player` and add the following, replacing `player` with your user name:
+Allow your user to start and stop Comitup and to delete the active Wi-Fi connection without a password. The player deletes the current connection when Wi-Fi setup is switched on, so Comitup can always raise the `Player` hotspot even while online. Run `sudo visudo -f /etc/sudoers.d/player` and add the following, replacing `player` with your user name:
 ```
-player ALL=(root) NOPASSWD: /usr/bin/systemctl start comitup, /usr/bin/systemctl stop comitup
+player ALL=(root) NOPASSWD: /usr/bin/systemctl start comitup, /usr/bin/systemctl stop comitup, /usr/bin/nmcli
 ```
 
 Start everything:

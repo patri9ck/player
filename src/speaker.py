@@ -681,6 +681,18 @@ class Speaker:
 
         return False
 
+    def wifi_connection(self):
+        result = subprocess.run(
+            ["nmcli", "-t", "-f", "NAME,TYPE", "connection", "show", "--active"],
+            capture_output=True, text=True)
+
+        for line in result.stdout.splitlines():
+            name, _, kind = line.rpartition(":")
+            if "wireless" in kind:
+                return name
+
+        return None
+
     def bluetooth_hold(self):
         active = subprocess.run(["systemctl", "is-active", "--quiet", "comitup"]).returncode == 0
 
@@ -688,6 +700,10 @@ class Speaker:
             subprocess.run(["sudo", "systemctl", "stop", "comitup"])
             self.notify("Wi-Fi Setup Off")
         else:
+            connection = self.wifi_connection()
+            if connection:
+                subprocess.run(["sudo", "nmcli", "connection", "delete", connection])
+
             subprocess.run(["sudo", "systemctl", "start", "comitup"])
             self.notify("Wi-Fi Setup On")
 
